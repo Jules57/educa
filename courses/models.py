@@ -3,7 +3,6 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.template.loader import render_to_string
-
 from .fields import OrderField
 
 
@@ -66,8 +65,7 @@ class Content(models.Model):
                                              'text',
                                              'video',
                                              'image',
-                                             'file'
-                                         )})
+                                             'file')})
     object_id = models.PositiveIntegerField()
     item = GenericForeignKey('content_type', 'object_id')
     order = OrderField(blank=True, for_fields=['module'])

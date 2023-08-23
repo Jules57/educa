@@ -1,20 +1,29 @@
-from django.core.cache import cache
 from django.shortcuts import redirect, get_object_or_404
-from django.views.generic import DetailView
 from django.views.generic.base import TemplateResponseMixin, View
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic.detail import DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Count
 from django.urls import reverse_lazy
 from django.forms.models import modelform_factory
 from django.apps import apps
+from django.db.models import Count
+from django.core.cache import cache
 from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
-
 from students.forms import CourseEnrollForm
 from .forms import ModuleFormSet
 from .models import Course
-from .models import Module, Content, Subject
+from .models import Module, Content
+from .models import Subject
+
+
+class ManageCourseListView(ListView):
+    model = Course
+    template_name = 'courses/manage/course/list.html'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.filter(owner=self.request.user)
 
 
 class OwnerMixin:
@@ -76,8 +85,8 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
     def get(self, request, *args, **kwargs):
         formset = self.get_formset()
         return self.render_to_response({
-            'course': self.course,
-            'formset': formset})
+                                           'course': self.course,
+                                           'formset': formset})
 
     def post(self, request, *args, **kwargs):
         formset = self.get_formset(data=request.POST)
@@ -85,8 +94,8 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
             formset.save()
             return redirect('manage_course_list')
         return self.render_to_response({
-            'course': self.course,
-            'formset': formset})
+                                           'course': self.course,
+                                           'formset': formset})
 
 
 class ContentCreateUpdateView(TemplateResponseMixin, View):
@@ -122,8 +131,8 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
     def get(self, request, module_id, model_name, id=None):
         form = self.get_form(self.model, instance=self.obj)
         return self.render_to_response({
-            'form': form,
-            'object': self.obj})
+                                           'form': form,
+                                           'object': self.obj})
 
     def post(self, request, module_id, model_name, id=None):
         form = self.get_form(self.model,
@@ -140,8 +149,8 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
                                        item=obj)
             return redirect('module_content_list', self.module.id)
         return self.render_to_response({
-            'form': form,
-            'object': self.obj})
+                                           'form': form,
+                                           'object': self.obj})
 
 
 class ContentDeleteView(View):
@@ -181,7 +190,8 @@ class ContentOrderView(CsrfExemptMixin,
     def post(self, request):
         for id, order in self.request_json.items():
             Content.objects.filter(id=id,
-                                   module__course__owner=request.user).update(order=order)
+                                   module__course__owner=request.user) \
+                .update(order=order)
         return self.render_json_response({'saved': 'OK'})
 
 
@@ -197,7 +207,6 @@ class CourseListView(TemplateResponseMixin, View):
             cache.set('all_subjects', subjects)
         all_courses = Course.objects.annotate(
                 total_modules=Count('modules'))
-
         if subject:
             subject = get_object_or_404(Subject, slug=subject)
             key = f'subject_{subject.id}_courses'
